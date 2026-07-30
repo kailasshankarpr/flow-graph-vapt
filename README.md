@@ -78,7 +78,7 @@
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-username/flow-graph-vapt.git
+git clone https://github.com/kailasshankarpr/flow-graph-vapt.git
 cd flow-graph-vapt
 
 # 2. Create and activate a virtual environment
