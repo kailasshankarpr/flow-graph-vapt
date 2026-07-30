@@ -146,17 +146,7 @@ The report provides:
 - **Side-by-Side Baseline vs. Mutated Request/Response Diffs**
 - **Developer Remediation Guidance**
 
----
 
-## 🧪 Benchmark Testing Targets
-
-Flow-Graph VAPT has been verified against the following vulnerable target benchmarks:
-
-| Target Benchmark | Type | Port | Command to Launch |
-| :--- | :--- | :--- | :--- |
-| **OWASP Juice Shop** | Modern Node.js/Angular SPA | `3000` | `docker run -d -p 3000:3000 bkimminich/juice-shop` |
-| **crAPI** | Microservices Architecture | `8888` | `docker-compose up -d` (crAPI repo) |
-| **VAmPI** | Python/Flask REST API | `5000` | `docker run -d -p 5000:5000 erev0s/vampi:latest` |
 
 ---
 
