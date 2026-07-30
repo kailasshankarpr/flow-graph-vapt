@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flow-graph-vapt"
+version = "1.0.0"
+description = "Enterprise-Grade Automated BOLA/IDOR Detection Engine using Application Flow Graph Analysis"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [
+    {name = "Flow-Graph VAPT Team", email = "researcher@flowgraph.vapt"}
+]
+keywords = ["vapt", "bola", "idor", "security", "flow-graph", "cybersecurity", "api-security"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Information Technology",
+    "Topic :: Security",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.28.0",
+    "playwright>=1.42.0",
+    "mitmproxy>=10.2.0",
+    "httpx>=0.27.0",
+    "beautifulsoup4>=4.12.0",
+    "networkx>=3.2.1",
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.2.0",
+    "sqlalchemy>=2.0.28",
+    "alembic>=1.13.1",
+    "asyncpg>=0.29.0",
+    "aiosqlite>=0.20.0",
+    "redis>=5.0.3",
+    "loguru>=0.7.2",
+    "structlog>=24.1.0",
+    "rich>=13.7.1",
+    "typer>=0.9.0",
+    "jinja2>=3.1.3",
+    "python-multipart>=0.0.9",
+    "pyyaml>=6.0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.5",
+    "pytest-cov>=4.1.0",
+    "black>=24.2.0",
+    "ruff>=0.3.0",
+    "mypy>=1.8.0",
+]
+
+[project.scripts]
+flow-graph-vapt = "flow_graph_vapt.main:cli_app"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q --cov=flow_graph_vapt"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

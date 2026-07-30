@@ -1,0 +1,31 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Testing & Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Local Traffic & Reports (Optional to exclude or keep)
+captured_traffic/*.json
+reports/*.html
+reports/*.json
+reports/*.md
+
+# Playwright & Browsers
+.cache/
+ms-playwright/
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

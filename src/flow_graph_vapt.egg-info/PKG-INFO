@@ -1,0 +1,139 @@
+Metadata-Version: 2.4
+Name: flow-graph-vapt
+Version: 1.0.0
+Summary: Enterprise-Grade Automated BOLA/IDOR Detection Engine using Application Flow Graph Analysis
+Author-email: Flow-Graph VAPT Team <researcher@flowgraph.vapt>
+License: MIT
+Keywords: vapt,bola,idor,security,flow-graph,cybersecurity,api-security
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Information Technology
+Classifier: Topic :: Security
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.110.0
+Requires-Dist: uvicorn[standard]>=0.28.0
+Requires-Dist: playwright>=1.42.0
+Requires-Dist: mitmproxy>=10.2.0
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: beautifulsoup4>=4.12.0
+Requires-Dist: networkx>=3.2.1
+Requires-Dist: pydantic>=2.6.0
+Requires-Dist: pydantic-settings>=2.2.0
+Requires-Dist: sqlalchemy>=2.0.28
+Requires-Dist: alembic>=1.13.1
+Requires-Dist: asyncpg>=0.29.0
+Requires-Dist: aiosqlite>=0.20.0
+Requires-Dist: redis>=5.0.3
+Requires-Dist: loguru>=0.7.2
+Requires-Dist: structlog>=24.1.0
+Requires-Dist: rich>=13.7.1
+Requires-Dist: typer>=0.9.0
+Requires-Dist: jinja2>=3.1.3
+Requires-Dist: python-multipart>=0.0.9
+Requires-Dist: pyyaml>=6.0.1
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.5; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: black>=24.2.0; extra == "dev"
+Requires-Dist: ruff>=0.3.0; extra == "dev"
+Requires-Dist: mypy>=1.8.0; extra == "dev"
+
+# Flow-Graph VAPT: Enterprise Automated BOLA / IDOR Detection Framework
+
+**Flow-Graph VAPT** is a modular, scalable cybersecurity framework written in Python 3.12+ designed to automate the discovery and verification of **Broken Object Level Authorization (BOLA / IDOR)** vulnerabilities in modern web applications and REST/GraphQL APIs.
+
+---
+
+## 🌟 Key Features
+
+- **Directed Application Flow Graph ($G = (V, E)$)**: Maps endpoints, inferred entity types, and request dependencies using NetworkX.
+- **Multi-Vector Identifier Extraction**: Detects candidate IDs across URL paths, query strings, JSON payloads, GraphQL variables, and DOM links using weighted heuristic scoring.
+- **Unsupervised Object Classification**: Groups identifiers into entity classes (e.g., `User`, `Order`, `Document`) using URL path stemming and JSON structural response key clustering (Jaccard similarity).
+- **Dual-Persona Identifier Inventory**: Stores valid identifiers captured across distinct user sessions (User A - Attacker vs. User B - Victim).
+- **Stateful Replay Engine**: Mutates requests using `httpx` while preserving authentication headers, anti-CSRF tokens, cookies, and body structures.
+- **Differential Response Analyzer**: Evaluates baseline vs. mutated responses using a multi-vector matrix (Status codes, error payload absence, structural similarity, sensitive data exposure).
+- **Multi-Format Reporting**: Produces structured JSON, Markdown, and Jinja2-rendered HTML executive reports.
+
+---
+
+## 🚀 Quick Start
+
+### 1. Installation
+```bash
+git clone https://github.com/your-username/flow-graph-vapt.git
+cd flow-graph-vapt
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies & Playwright browser
+pip install -e .[dev]
+playwright install chromium
+```
+
+### 2. Run Demonstration BOLA Assessment
+```bash
+flow-graph-vapt scan --target http://localhost:8000 --output ./reports
+```
+
+### 3. Run Test Suite
+```bash
+pytest --cov=flow_graph_vapt tests/
+```
+
+---
+
+## 📁 Architecture Overview
+
+```text
+Flow-Graph VAPT
+
+├── src/flow_graph_vapt/
+│   ├── main.py          # Entrypoint (CLI & REST Server)
+│   ├── orchestrator.py  # Master Scanner Pipeline
+│   ├── graph.py         # Application Flow Graph (NetworkX)
+│   ├── extractor.py     # Identifier Extraction Engine
+│   ├── classifier.py    # Object Type Inference Engine
+│   ├── inventory.py     # Object Inventory Repository
+│   ├── replay.py        # Replay & Request Mutation Engine
+│   ├── analyzer.py      # Differential Response Analyzer
+│   ├── crawler.py       # Playwright Authenticated Crawler
+│   ├── proxy.py         # mitmproxy Ingestion Hook
+│   ├── reporter.py      # Multi-Format Report Generator
+│   ├── models.py        # Pydantic Schemas & Domain Models
+│   ├── config.py        # Configuration Settings
+│   └── exceptions.py    # Custom Exception Hierarchy
+├── tests/               # Pytest Suite
+└── reports/             # Generated BOLA Assessment Reports
+```
+
+---
+
+## 🎓 Educational Insights & Architecture Notes
+
+### Why Traditional Scanners Fail on BOLA
+BOLA is a logic flaw: the HTTP syntax is 100% valid, the user is authenticated, and the server returns `200 OK`. Flow-Graph VAPT solves this by comparing **User B's baseline response** against **User A's mutated request using User B's object ID**.
+
+### Multi-Vector Analysis Matrix
+Instead of checking only for `HTTP 200 OK`, Flow-Graph VAPT uses 5 vectors:
+1. Status Code Validation (`200 OK` vs `401/403/404`)
+2. Error Payload Absence Check (`error`, `unauthorized`)
+3. JSON Key Structural Overlap (Jaccard Similarity $\ge 0.75$)
+4. Sensitive Data Exposure Detection (`email`, `ssn`, `balance`)
+5. Content Length Ratio Analysis
+
+---
+
+## 🔮 Version 2.0 Roadmap
+
+1. **Graph Database Backing**: Replace NetworkX with Neo4j / Memgraph for persistence across multi-gigabyte scans.
+2. **AI/ML Entity Classification**: Incorporate embeddings (e.g., SentenceTransformers) to classify obfuscated parameter keys.
+3. **GraphQL AST Mutation**: Add native GraphQL query variable AST rewriting.
+
+---
+
+## 📜 License
+[MIT License](LICENSE)

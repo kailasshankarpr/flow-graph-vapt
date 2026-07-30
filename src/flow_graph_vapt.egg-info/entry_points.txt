@@ -1,0 +1,2 @@
+[console_scripts]
+flow-graph-vapt = flow_graph_vapt.main:cli_app
