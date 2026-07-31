@@ -1,0 +1,3 @@
+# Mark HTML reports and templates as documentation/generated so GitHub Linguist identifies Python as the primary project language
+*.html linguist-documentation
+reports/* linguist-vendored
