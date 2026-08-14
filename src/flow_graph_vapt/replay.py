@@ -1,14 +1,7 @@
 """
 Replay Engine & HTTP Mutation Module.
 Executes mutational requests by replacing target object identifiers while preserving authentication,
-anti-CSRF tokens, cookies, headers, and request body structures using httpx.
-
-Educational Insights:
-- Deep Request Mutation: Replacing an ID requires modifying exact target locations:
-  - Path: String segment substitution or URL path template formatting.
-  - Query: Parsing query parameter maps and replacing key values.
-  - JSON Body: Deep object mutation using nested dictionary traversals.
-- Session Isolation: When User A (Attacker) sends User B's object ID, we MUST send User A's auth token/cookie so the request executes with User A's authorization context.
+anti-CSRF tokens, cookies, headers, rate limits, and request body structures using httpx.
 """
 
 import json
@@ -19,7 +12,6 @@ from loguru import logger
 from flow_graph_vapt.models import (
     CandidateIdentifier,
     HTTPInteraction,
-    HTTPMethod,
     HTTPRequestModel,
     HTTPResponseModel,
     IdentifierLocation,
@@ -27,13 +19,23 @@ from flow_graph_vapt.models import (
     ReplayResult,
 )
 from flow_graph_vapt.exceptions import ReplayEngineError
+from flow_graph_vapt.state import RateLimiterAntiDetection, SessionStateManager
+from flow_graph_vapt.validator import TargetScopeValidator
 
 
 class ReplayEngine:
-    """Executes stateful HTTP request mutations for BOLA authorization testing."""
+    """Executes stateful HTTP request mutations for BOLA authorization testing with rate limiting and anti-detection."""
 
-    def __init__(self, timeout_seconds: float = 10.0) -> None:
+    def __init__(
+        self,
+        timeout_seconds: float = 10.0,
+        requests_per_second: float = 5.0,
+        target_validator: Optional[TargetScopeValidator] = None
+    ) -> None:
         self.timeout_seconds = timeout_seconds
+        self.rate_limiter = RateLimiterAntiDetection(requests_per_second=requests_per_second)
+        self.session_manager = SessionStateManager()
+        self.target_validator = target_validator
 
     def mutate_request(
         self,
@@ -44,6 +46,11 @@ class ReplayEngine:
     ) -> HTTPRequestModel:
         """Clones baseline request and mutates the target identifier value."""
         mutated_url = base_request.url
+
+        # Validate Target Scope before mutation execution
+        if self.target_validator:
+            self.target_validator.validate_url(mutated_url)
+
         mutated_headers = dict(base_request.headers)
         mutated_query = dict(base_request.query_params)
         mutated_json = json.loads(json.dumps(base_request.json_data)) if base_request.json_data else None
@@ -71,6 +78,10 @@ class ReplayEngine:
             for k, v in attacker_auth_headers.items():
                 mutated_headers[k] = v
 
+        # 5. Apply Anti-Detection Headers & Session State
+        mutated_headers = self.rate_limiter.apply_anti_detection_headers(mutated_headers)
+        mutated_headers, mutated_cookies = self.session_manager.apply_state(mutated_headers, base_request.cookies)
+
         return HTTPRequestModel(
             url=mutated_url,
             method=base_request.method,
@@ -78,7 +89,7 @@ class ReplayEngine:
             query_params=mutated_query,
             body=json.dumps(mutated_json) if mutated_json else base_request.body,
             json_data=mutated_json,
-            cookies=base_request.cookies
+            cookies=mutated_cookies
         )
 
     def _mutate_json_key(self, data: Any, target_key: str, old_val: str, new_val: str) -> None:
@@ -100,10 +111,13 @@ class ReplayEngine:
         alternate_id_value: str,
         attacker_auth_headers: Optional[Dict[str, str]] = None
     ) -> ReplayResult:
-        """Sends the mutated request asynchronously and records the baseline vs mutated response pair."""
+        """Sends the mutated request asynchronously with rate limiting, anti-detection, and error backoff."""
         mutated_req = self.mutate_request(
             baseline_interaction.request, target_id, alternate_id_value, attacker_auth_headers
         )
+
+        # Apply Rate Limiting & Anti-Detection delay
+        await self.rate_limiter.wait_if_needed()
 
         logger.info(f"Replaying mutation on '{mutated_req.url}' substituting '{target_id.raw_value}' -> '{alternate_id_value}'")
 
@@ -119,6 +133,10 @@ class ReplayEngine:
                         cookies=mutated_req.cookies
                     )
                     
+                    # Update session cookies & rate limit backoff tracking
+                    self.session_manager.update_cookies_from_response(dict(resp.headers))
+                    await self.rate_limiter.handle_rate_limit_response(resp.status_code)
+
                     resp_json = None
                     try:
                         resp_json = resp.json()

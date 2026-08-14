@@ -12,6 +12,9 @@ class FlowGraphVAPTError(Exception):
         self.details = details or {}
 
 
+VAPTError = FlowGraphVAPTError
+
+
 class ProxyIngestionError(FlowGraphVAPTError):
     """Raised when traffic capture or proxy processing fails."""
     pass
