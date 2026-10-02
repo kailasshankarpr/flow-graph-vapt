@@ -5,7 +5,7 @@ and user persona sessions.
 
 Educational Insights:
 - Dual-Persona Separation: To test BOLA, we MUST pair identifiers with the specific user session (User A vs. User B) they belong to.
-- Purpose: Provides alternative valid target identifiers when executing replay mutations.
+- Purpose: Provides alternative valid target identifiers when executing replay mutations while enforcing strict own-object exclusion.
 """
 
 from collections import defaultdict
@@ -32,14 +32,24 @@ class ObjectInventory:
 
     def get_alternative_identifiers(self, entity_type: str, exclude_session_id: str) -> List[str]:
         """
-        Retrieves valid alternative identifiers for a given entity type belonging to OTHER sessions.
-        Used by the Replay Engine to perform BOLA substitution.
+        Retrieves valid alternative identifiers for a given entity type belonging ONLY to OTHER sessions.
+        Strictly excludes identifiers that belong to the requesting session to prevent false positive own-object testing.
         """
         alternatives: Set[str] = set()
+        own_ids = self._inventory[entity_type].get(exclude_session_id, set())
+
         for session_id, id_set in self._inventory[entity_type].items():
             if session_id != exclude_session_id:
-                alternatives.update(id_set)
+                # Add IDs from other sessions that DO NOT belong to the attacker session
+                for candidate_id in id_set:
+                    if candidate_id not in own_ids:
+                        alternatives.add(candidate_id)
+
         return list(alternatives)
+
+    def is_own_object(self, entity_type: str, session_id: str, identifier_value: str) -> bool:
+        """Checks if an identifier value belongs to the specified session persona."""
+        return identifier_value in self._inventory[entity_type].get(session_id, set())
 
     def get_all_entities(self) -> List[str]:
         """Returns all discovered entity types in the inventory."""

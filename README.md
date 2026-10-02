@@ -13,7 +13,7 @@ Flow-Graph VAPT is a Python tool that detects **Broken Object Level Authorizatio
 
 ## ⚠️ Authorized Use Disclaimer
 
-> **IMPORTANT**: This tool is designed strictly for authorized security testing, academic research, and defensive evaluation. Use this tool only on applications and networks you own or have explicit, written permission to test. Unauthorized security testing is illegal.
+> **IMPORTANT**: This tool is designed strictly for authorized security testing, academic research, and defensive evaluation. Use this tool only on systems you own or have explicit, written permission to test. Unauthorized security testing is illegal.
 
 ---
 
@@ -31,17 +31,24 @@ Flow-Graph VAPT addresses this by:
 
 ## 📊 Benchmark Validation & Results
 
-The tool was validated against the benchmark target **OWASP Juice Shop** (`bkimminich/juice-shop:v15.3.0`):
+The scanner logic was evaluated across two vulnerable target environments: **OWASP Juice Shop** and **OWASP crAPI**.
 
-| Target Benchmark | Target Type | Scan Results | Status |
-| :--- | :--- | :--- | :--- |
-| **OWASP Juice Shop** | Node.js / Angular SPA (`:3000`) | **4 BOLA findings detected**, 4 confirmed manually, 0 false positives | ✅ Verified |
+| Target Benchmark | Architecture | Candidates Detected | False Positives Filtered | Confirmed BOLA Flaws | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **OWASP Juice Shop** | Node.js / Angular SPA (`:3000`) | 4 | **2** (Own-object & Session-scoped) | **2** | ✅ Verified |
+| **OWASP crAPI** | Microservices REST API (`:8888`) | 1 | 0 | **1** | ✅ Verified |
 
 ### Confirmed Vulnerabilities Identified:
-- `GET /rest/basket/6` — Basket BOLA (User A accessed User B's shopping cart)
-- `GET /rest/basket/7` — Basket BOLA (User A accessed arbitrary user cart)
-- `GET /api/BasketItems/11` — Basket Items BOLA (Cross-tenant modification/view of cart items)
-- `GET /rest/user/whoami` — Identity Endpoint BOLA (Session data leakage)
+- **OWASP Juice Shop**:
+  - `GET /rest/basket/6` — Basket BOLA (User A accessed User B's shopping cart)
+  - `GET /api/BasketItems/11` — Basket Items BOLA (Cross-tenant modification/view of cart items)
+- **OWASP crAPI**:
+  - `GET /identity/api/v2/vehicle/{vehicle_id}/location` — Vehicle GPS Location BOLA
+
+### False Positive Analysis & Elimination:
+During initial test runs, 2 raw candidates were flagged on Juice Shop:
+1. `GET /rest/basket/7`: The attacker persona (`User_A`) accessed basket 7 in their own session. Replaying User A's token against basket 7 is legitimate own-object access. **Fixed by**: `ObjectInventory.get_alternative_identifiers()` which explicitly excludes object IDs belonging to the requesting persona.
+2. `GET /rest/user/whoami`: Takes no target object ID parameter and returns whichever user owns the session token. **Fixed by**: `DifferentialResponseAnalyzer.is_public_or_session_scoped_endpoint()` which filters out session-scoped endpoints (`/whoami`, `/me`).
 
 ### Automated Test Coverage
 - **Unit & Integration Test Suite**: 68% statement coverage (`pytest --cov=flow_graph_vapt tests/`).
@@ -53,16 +60,12 @@ The tool was validated against the benchmark target **OWASP Juice Shop** (`bkimm
 A potential BOLA finding is evaluated against a 5-vector comparison matrix to calculate a BOLA Confidence Score ($0.0 - 1.0$):
 
 1. **HTTP Status Code Check**: Evaluates `200/201/206 OK` vs expected `401/403/404` enforcement.
-2. **Error Payload Absence**: Scans the response body for soft-error messages (`"unauthorized"`, `"forbidden"`, `"denied"`, `"invalid_permission"`). If error keys are detected, a score penalty (-0.35) is applied.
-3. **Structural JSON Key Similarity (Jaccard Index $\ge 0.75$)**: Compares key sets of the baseline response ($B$) and mutated response ($M$):
+2. **Error Payload Absence**: Scans response bodies for soft-error keys (`"unauthorized"`, `"forbidden"`, `"denied"`, `"invalid_permission"`). Soft-error detection applies a score penalty (-0.35).
+3. **Structural JSON Key Similarity (Jaccard Index $\ge 0.75$)**: Compares key sets of baseline ($B$) and mutated ($M$) responses:
    $$J(B, M) = \frac{|B \cap M|}{|B \cup M|}$$
    If key structures match ($\ge 0.75$), the response is confirmed to return actual object data rather than a generic error schema.
 4. **Sensitive Data Check**: Scans for fields like `email`, `ssn`, `phone`, `balance`, `address`, `credit_card`.
 5. **Content Length Ratio**: Verifies payload size consistency ($0.70 \le \text{ratio} \le 1.30$).
-
-### How False Positives Are Mitigated:
-- **Public & Static Endpoint Filtering**: Ignores public catalog or documentation endpoints (`/products`, `/swagger`, `/i18n/`, `/health`) where `HTTP 200 OK` is expected for all users.
-- **Target Scope Validation**: Enforces strict domain validation (`TargetScopeValidator`) to prevent executing out-of-scope third-party requests.
 
 ---
 
@@ -81,9 +84,9 @@ Launch proxy interception hook:
 mitmweb -s src/flow_graph_vapt/proxy.py --listen-port 8081 --web-port 8085
 ```
 
-Configure your browser proxy (`127.0.0.1:8081`):
-1. **User B (Victim)**: Log into Juice Shop (`admin@juice-sh.op` / `admin123`), view basket `/rest/basket/6`, then log out.
-2. **User A (Attacker)**: Log into Juice Shop (`user2@juice-sh.op` / `user2123`), view basket `/rest/basket/7`, then log out.
+Configure browser proxy (`127.0.0.1:8081`):
+1. **User B (Victim)**: Log into Juice Shop with lab account `admin@juice-sh.op` / `admin123` *(intentionally vulnerable lab application; local use only)*, view basket `/rest/basket/6`, then log out.
+2. **User A (Attacker)**: Log into Juice Shop with lab account `user2@juice-sh.op` / `user2123`, view basket `/rest/basket/7`, then log out.
 
 ### 3. Execute Assessment
 ```bash
@@ -132,7 +135,7 @@ make run           # Run scanner on target
 # Build Docker image
 docker build -t flow-graph-vapt:latest .
 
-# Run containerized scanner
+# Launch FastAPI REST API Management Server & Scanner Service on port 8000
 docker run --rm -p 8000:8000 flow-graph-vapt:latest
 ```
 
@@ -171,7 +174,7 @@ flow_graph_vapt/
 │   ├── proxy.py               # mitmproxy Ingestion Hook
 │   ├── replay.py              # Stateful Replay Mutation Engine
 │   ├── reporter.py            # Executive Report Generator
-│   ├── state.py               # Rate Limiting, Anti-Detection & State Manager
+│   ├── state.py               # Request Throttling & Session State Manager
 │   └── validator.py           # Target Scope Validator
 ├── tests/                     # Pytest Test Suite
 ├── Dockerfile                 # Container Build Configuration

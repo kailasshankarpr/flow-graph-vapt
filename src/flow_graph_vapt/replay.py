@@ -78,8 +78,8 @@ class ReplayEngine:
             for k, v in attacker_auth_headers.items():
                 mutated_headers[k] = v
 
-        # 5. Apply Anti-Detection Headers & Session State
-        mutated_headers = self.rate_limiter.apply_anti_detection_headers(mutated_headers)
+        # 5. Apply Header Normalization & Session State
+        mutated_headers = self.rate_limiter.apply_standard_headers(mutated_headers)
         mutated_headers, mutated_cookies = self.session_manager.apply_state(mutated_headers, base_request.cookies)
 
         return HTTPRequestModel(

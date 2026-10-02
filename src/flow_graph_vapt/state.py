@@ -1,8 +1,8 @@
 """
-State Management, Session Tracking, Rate Limiting, & Anti-Detection Module.
+Request Throttling, Rate Control, & Session State Management Module.
 Provides:
-1. RateLimiter & AntiDetectionEngine (Jittered delay, exponential backoff, rate limiting)
-2. SessionStateManager (Dynamic cookie jars, CSRF token rotation, session refresh)
+1. RequestThrottler (Jittered delay, exponential backoff, rate throttling)
+2. SessionStateManager (Dynamic cookie jars, CSRF token propagation, session state)
 """
 
 import asyncio
@@ -20,26 +20,23 @@ USER_AGENTS = [
 ]
 
 
-class RateLimiterAntiDetection:
-    """Controls request rate, implements backoff on 429/403, and injects anti-detection headers."""
+class RequestThrottler:
+    """Controls request pacing, implements exponential backoff on HTTP 429/503, and normalizes browser headers."""
 
-    def __init__(self, requests_per_second: float = 5.0, enable_anti_detection: bool = True) -> None:
+    def __init__(self, requests_per_second: float = 5.0, enable_jitter: bool = True) -> None:
         self.delay = 1.0 / max(requests_per_second, 0.1)
-        self.enable_anti_detection = enable_anti_detection
+        self.enable_jitter = enable_jitter
         self.last_request_time = 0.0
         self.consecutive_rate_limits = 0
 
-    async def throttle() -> None:
-        pass
-
     async def wait_if_needed(self) -> None:
-        """Enforces rate limiting delay with optional randomized jitter."""
+        """Enforces rate limiting delay with optional randomized delay jitter."""
         now = time.time()
         elapsed = now - self.last_request_time
         target_delay = self.delay
 
-        if self.enable_anti_detection:
-            # Add random jitter (+/- 20%) to avoid fixed request patterns
+        if self.enable_jitter:
+            # Add random jitter (+/- 20%) to prevent synchronized target load
             target_delay += random.uniform(-0.1 * self.delay, 0.2 * self.delay)
 
         if elapsed < target_delay:
@@ -48,8 +45,8 @@ class RateLimiterAntiDetection:
         self.last_request_time = time.time()
 
     async def handle_rate_limit_response(self, status_code: int) -> None:
-        """Executes exponential backoff if 429 Too Many Requests or 403 Rate Limit is returned."""
-        if status_code == 429 or status_code == 503:
+        """Executes exponential backoff if 429 Too Many Requests or 503 Service Unavailable is returned."""
+        if status_code in (429, 503):
             self.consecutive_rate_limits += 1
             backoff = min(2.0 ** self.consecutive_rate_limits + random.uniform(0.5, 1.5), 30.0)
             logger.warning(f"Rate limit / throttle detected (HTTP {status_code}). Applying exponential backoff for {backoff:.2f}s...")
@@ -57,11 +54,8 @@ class RateLimiterAntiDetection:
         else:
             self.consecutive_rate_limits = max(0, self.consecutive_rate_limits - 1)
 
-    def apply_anti_detection_headers(self, headers: Dict[str, str]) -> Dict[str, str]:
-        """Rotates User-Agents and injects realistic browser headers to bypass WAF heuristics."""
-        if not self.enable_anti_detection:
-            return headers
-
+    def apply_standard_headers(self, headers: Dict[str, str]) -> Dict[str, str]:
+        """Normalizes request headers with standard browser User-Agents and Accept headers."""
         new_headers = dict(headers)
         if "User-Agent" not in new_headers and "user-agent" not in new_headers:
             new_headers["User-Agent"] = random.choice(USER_AGENTS)
@@ -70,6 +64,10 @@ class RateLimiterAntiDetection:
             new_headers["Accept-Language"] = "en-US,en;q=0.9"
 
         return new_headers
+
+
+# Alias for backward compatibility
+RateLimiterAntiDetection = RequestThrottler
 
 
 class SessionStateManager:
