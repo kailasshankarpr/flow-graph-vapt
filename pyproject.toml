@@ -5,18 +5,20 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "flow-graph-vapt"
 version = "1.0.0"
-description = "Enterprise-Grade Automated BOLA/IDOR Detection Engine using Application Flow Graph Analysis"
+description = "Automated BOLA/IDOR Detection Engine using Application Flow Graph Analysis"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
-    {name = "Flow-Graph VAPT Team", email = "researcher@flowgraph.vapt"}
+    {name = "Kailas Shankar PR", email = "kailasshankarpr@gmail.com"}
 ]
 keywords = ["vapt", "bola", "idor", "security", "flow-graph", "cybersecurity", "api-security"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Information Technology",
     "Topic :: Security",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
 
